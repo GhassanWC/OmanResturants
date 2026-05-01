@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "restaurant_owner", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Restaurant": {
+      "title": "Restaurant",
+      "description": "Restaurant profile details",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "cuisineType": { "type": "string" },
+        "location": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "instagram": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "coverImageUrl": { "type": "string" },
+        "galleryImages": { "type": "array", "items": { "type": "string" } },
+        "menuItems": { "type": "array" },
+        "offers": { "type": "array" },
+        "openingHours": { "type": "object" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "views": { "type": "number" },
+        "phoneClicks": { "type": "number" },
+        "whatsappClicks": { "type": "number" },
+        "isApproved": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "plan": { "type": "string", "enum": ["free", "featured", "homepage_featured"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "cuisineType"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Restaurant category/cuisine type",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer reviews for restaurants",
+      "type": "object",
+      "properties": {
+        "restaurantId": { "type": "string" },
+        "userId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["restaurantId", "userId", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/restaurants/{restaurantId}": {
+      "schema": "Restaurant",
+      "description": "Restaurant listings"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Cuisine categories"
+    },
+    "/restaurants/{restaurantId}/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Restaurant reviews"
+    }
+  }
+}

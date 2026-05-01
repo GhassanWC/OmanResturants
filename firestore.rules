@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'ghassanwork29@gmail.com' && 
+        request.auth.token.email_verified == true
+      ); 
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validation Helpers ---
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.keys().size() >= 3 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() < 200 &&
+             data.role in ['customer', 'restaurant_owner', 'admin'];
+    }
+
+    function isValidRestaurant(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'cuisineType']) &&
+             data.ownerId is string && data.name is string && 
+             data.name.size() > 0 && data.name.size() < 200 &&
+             data.cuisineType is string &&
+             data.ownerId == (request.auth.uid) ;
+             // Note: data.keys().size() check is tricky for optional fields, 
+             // but we should enforce a minimum.
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['restaurantId', 'userId', 'rating', 'comment', 'createdAt']) &&
+             data.keys().size() == 5 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.restaurantId is string &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    // --- Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if isSignedIn() && userId == request.auth.uid && 
+                     incoming().role == existing().role &&
+                     incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'email']);
+    }
+
+    match /restaurants/{restaurantId} {
+      allow get: if true;
+      allow list: if true; // Client should filter by isApproved=true
+      
+      allow create: if isSignedIn() && isValidRestaurant(incoming()) && 
+                    incoming().isApproved == false && 
+                    incoming().isFeatured == false &&
+                    incoming().plan == 'free';
+      
+      allow update: if isSignedIn() && (
+        // Admin full update (approval, featured, plan)
+        (isAdmin()) ||
+        // Owner partial update (cannot change approval status or plan)
+        (isOwner(existing().ownerId) && 
+         !incoming().diff(existing()).affectedKeys().hasAny(['isApproved', 'isFeatured', 'plan', 'ownerId']) &&
+         isValidRestaurant(incoming()))
+      );
+      
+      allow delete: if isAdmin();
+
+      // Nested reviews
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isVerified() && isValidReview(incoming()) && 
+                      exists(/databases/$(database)/documents/restaurants/$(restaurantId));
+        allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      }
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
